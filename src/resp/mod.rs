@@ -1,8 +1,23 @@
-pub mod decode;
-pub mod encode;
+pub mod array;
+pub mod bool;
+pub mod bulk_string;
+pub mod double;
+pub mod frame;
+pub mod integer;
+pub mod map;
+pub mod null;
+pub mod set;
+pub mod simple_error;
+pub mod simple_string;
 
-use std::collections::BTreeMap;
-use std::ops::{Deref, DerefMut};
+use array::*;
+use bulk_string::*;
+use frame::*;
+use map::*;
+use null::*;
+use set::*;
+use simple_error::*;
+use simple_string::*;
 
 use bytes::{Buf, BytesMut};
 use enum_dispatch::enum_dispatch;
@@ -37,50 +52,6 @@ pub enum RespError {
     #[error("Parse error: {0}")]
     ParseFloatError(#[from] std::num::ParseFloatError),
 }
-
-#[enum_dispatch(RespEncode)]
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub enum RespFrame {
-    SimpleString(SimpleString),
-    Error(SimpleError),
-    Integer(i64),
-    BulkString(BulkString),
-    Array(RespArray),
-    NullBulkString(RespNullBulkString),
-    NullArray(RespNullArray),
-    Null(RespNull),
-    Boolean(bool),
-    Double(f64),
-    Map(RespMap),
-    Set(RespSet),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct SimpleString(pub(crate) String);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct SimpleError(pub(crate) String);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct RespNullBulkString;
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct RespNullArray;
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct RespNull;
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct RespArray(pub(crate) Vec<RespFrame>);
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
-pub struct BulkString(pub(crate) Vec<u8>);
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct RespMap(pub(crate) BTreeMap<String, RespFrame>);
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct RespSet(pub(crate) Vec<RespFrame>);
 
 const BUF_CAP: usize = 4096;
 const CRLF: &[u8] = b"\r\n";
@@ -176,161 +147,24 @@ fn extract_fixed_data(
     Ok(())
 }
 
-impl From<&str> for RespFrame {
-    fn from(value: &str) -> Self {
-        // RespFrame::SimpleString(SimpleString::new(value))
-        // SimpleString::new(value).into()
-        SimpleString(value.to_string()).into()
-    }
-}
+#[cfg(test)]
+mod tests {
+    use crate::{
+        resp::{calc_total_length, parse_length},
+        RespError,
+    };
 
-impl From<&str> for SimpleString {
-    fn from(value: &str) -> Self {
-        SimpleString(value.to_string())
-    }
-}
+    #[test]
+    fn test_calc_array_length() -> anyhow::Result<()> {
+        let buf = b"*2\r\n$3\r\nset\r\n$5\r\nhello\r\n";
+        let (end, len) = parse_length(buf, "*")?;
+        let total_len = calc_total_length(buf, end, len, "*")?;
+        assert_eq!(total_len, buf.len());
 
-impl From<&str> for SimpleError {
-    fn from(value: &str) -> Self {
-        SimpleError(value.to_string())
-    }
-}
-
-impl From<&str> for BulkString {
-    fn from(value: &str) -> Self {
-        BulkString(value.as_bytes().to_vec())
-    }
-}
-
-impl From<&[u8]> for BulkString {
-    fn from(value: &[u8]) -> Self {
-        BulkString(value.to_vec())
-    }
-}
-
-impl From<&[u8]> for RespFrame {
-    fn from(value: &[u8]) -> Self {
-        BulkString(value.to_vec()).into()
-    }
-}
-
-impl<const N: usize> From<&[u8; N]> for BulkString {
-    fn from(value: &[u8; N]) -> Self {
-        BulkString(value.to_vec())
-    }
-}
-
-impl<const N: usize> From<&[u8; N]> for RespFrame {
-    fn from(value: &[u8; N]) -> Self {
-        BulkString(value.to_vec()).into()
-    }
-}
-
-impl Deref for SimpleString {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Deref for SimpleError {
-    type Target = String;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Deref for RespArray {
-    type Target = Vec<RespFrame>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Deref for BulkString {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl Deref for RespMap {
-    type Target = BTreeMap<String, RespFrame>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for RespMap {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl Deref for RespSet {
-    type Target = Vec<RespFrame>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl SimpleString {
-    pub fn new(s: impl Into<String>) -> Self {
-        SimpleString(s.into())
-    }
-}
-
-impl SimpleError {
-    pub fn new(e: impl Into<String>) -> Self {
-        SimpleError(e.into())
-    }
-}
-
-impl BulkString {
-    pub fn new(b: impl Into<Vec<u8>>) -> Self {
-        BulkString(b.into())
-    }
-}
-
-impl RespArray {
-    pub fn new(a: impl Into<Vec<RespFrame>>) -> Self {
-        RespArray(a.into())
-    }
-}
-
-impl RespMap {
-    pub fn new() -> Self {
-        RespMap(BTreeMap::new())
-    }
-}
-
-impl Default for RespMap {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl RespSet {
-    pub fn new(s: impl Into<Vec<RespFrame>>) -> Self {
-        let s = s.into();
-        RespSet(s)
-    }
-}
-
-impl AsRef<str> for SimpleString {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl AsRef<[u8]> for BulkString {
-    fn as_ref(&self) -> &[u8] {
-        &self.0
+        let buf = b"*2\r\n$3\r\nset\r\n";
+        let (end, len) = parse_length(buf, "*")?;
+        let ret = calc_total_length(buf, end, len, "*");
+        assert_eq!(ret.unwrap_err(), RespError::NotComplete);
+        Ok(())
     }
 }

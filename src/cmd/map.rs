@@ -9,7 +9,6 @@ impl CommandExecutor for Get {
     fn execute(self, backend: &Backend) -> RespFrame {
         match backend.get(&self.key) {
             Some(value) => value,
-            // None => RESP_OK.clone(),
             None => RespFrame::Null(RespNull),
         }
     }

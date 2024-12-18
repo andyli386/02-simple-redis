@@ -1,10 +1,9 @@
+use super::{CommandExecutor, HGetAll, HSet, RESP_OK};
 use crate::{
     backend::Backend,
     cmd::{extract_args, validate_command, CommandError, HGet},
     RespArray, RespFrame, RespMap, RespNull,
 };
-
-use super::{CommandExecutor, HGetAll, HSet, RESP_OK};
 
 impl CommandExecutor for HGet {
     fn execute(self, backend: &Backend) -> RespFrame {
