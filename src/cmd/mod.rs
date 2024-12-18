@@ -1,4 +1,6 @@
-use crate::{backend::Backend, RespArray, RespError, RespFrame};
+use crate::{backend::Backend, RespArray, RespError, RespFrame, SimpleString};
+use enum_dispatch::enum_dispatch;
+use lazy_static::lazy_static;
 use thiserror::Error;
 
 mod hmap;
@@ -16,17 +18,28 @@ pub enum CommandError {
     Utf8Error(#[from] std::string::FromUtf8Error),
 }
 
+lazy_static! {
+    static ref RESP_OK: RespFrame = SimpleString::new("OK").into();
+}
+
+#[enum_dispatch]
 pub trait CommandExecutor {
     fn execute(self, backend: &Backend) -> RespFrame;
 }
 
+#[enum_dispatch(CommandExecutor)]
+#[derive(Debug)]
 pub enum Command {
     Get(Get),
     Set(Set),
     HGet(HGet),
     HSet(HSet),
     HGetAll(HGetAll),
+    Unrecognized(Unrecognized),
 }
+
+#[derive(Debug)]
+pub struct Unrecognized;
 
 #[derive(Debug)]
 pub struct Get {
@@ -58,6 +71,43 @@ pub struct HSet {
 #[derive(Debug)]
 pub struct HGetAll {
     key: String,
+}
+
+impl TryFrom<RespFrame> for Command {
+    type Error = CommandError;
+    fn try_from(v: RespFrame) -> Result<Self, Self::Error> {
+        match v {
+            RespFrame::Array(array) => array.try_into(),
+            _ => Err(CommandError::InvalidCommand(
+                "Command must be an Array".to_string(),
+            )),
+        }
+    }
+}
+
+impl TryFrom<RespArray> for Command {
+    type Error = CommandError;
+    fn try_from(v: RespArray) -> Result<Self, Self::Error> {
+        match v.first() {
+            Some(RespFrame::BulkString(ref cmd)) => match cmd.as_ref() {
+                b"get" => Ok(Get::try_from(v)?.into()),
+                b"set" => Ok(Set::try_from(v)?.into()),
+                b"hget" => Ok(HGet::try_from(v)?.into()),
+                b"hset" => Ok(HSet::try_from(v)?.into()),
+                b"hgetall" => Ok(HGetAll::try_from(v)?.into()),
+                _ => Ok(Unrecognized.into()),
+            },
+            _ => Err(CommandError::InvalidCommand(
+                "Command must have a BulkString as the first argument".to_string(),
+            )),
+        }
+    }
+}
+
+impl CommandExecutor for Unrecognized {
+    fn execute(self, _: &Backend) -> RespFrame {
+        RESP_OK.clone()
+    }
 }
 
 fn validate_command(
