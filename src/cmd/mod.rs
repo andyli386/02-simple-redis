@@ -6,6 +6,7 @@ use thiserror::Error;
 mod echo;
 mod hmap;
 mod map;
+mod set;
 
 #[derive(Error, Debug)]
 pub enum CommandError {
@@ -38,6 +39,8 @@ pub enum Command {
     HGetAll(HGetAll),
     HMGet(HMGet),
     Echo(Echo),
+    SAdd(SAdd),
+    SIsmember(SIsmember),
     Unrecognized(Unrecognized),
 }
 
@@ -56,6 +59,18 @@ pub struct Get {
 
 #[derive(Debug)]
 pub struct Set {
+    key: String,
+    value: RespFrame,
+}
+
+#[derive(Debug)]
+pub struct SAdd {
+    key: String,
+    value: RespFrame,
+}
+
+#[derive(Debug)]
+pub struct SIsmember {
     key: String,
     value: RespFrame,
 }
@@ -108,6 +123,8 @@ impl TryFrom<RespArray> for Command {
                 b"hmget" => Ok(HMGet::try_from(v)?.into()),
                 b"hgetall" => Ok(HGetAll::try_from(v)?.into()),
                 b"echo" => Ok(Echo::try_from(v)?.into()),
+                b"sadd" => Ok(SAdd::try_from(v)?.into()),
+                b"sismember" => Ok(SIsmember::try_from(v)?.into()),
                 _ => Ok(Unrecognized.into()),
             },
             _ => Err(CommandError::InvalidCommand(

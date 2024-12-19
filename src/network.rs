@@ -17,7 +17,9 @@ impl Encoder<RespFrame> for RespFrameCodec {
     type Error = anyhow::Error;
 
     fn encode(&mut self, item: RespFrame, dst: &mut bytes::BytesMut) -> Result<()> {
+        info!("Send frame: {:?}", item);
         let encoded = item.encode();
+        info!("Send frame encoded: {:?}", encoded);
         dst.extend_from_slice(&encoded);
         Ok(())
     }

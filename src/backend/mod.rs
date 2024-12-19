@@ -10,7 +10,7 @@ pub struct Backend(pub(crate) Arc<BackendInner>);
 pub struct BackendInner {
     pub map: DashMap<String, RespFrame>,
     pub hmap: DashMap<String, DashMap<String, RespFrame>>,
-    pub set: DashSet<RespFrame>,
+    pub set: DashMap<String, DashSet<RespFrame>>,
 }
 
 impl fmt::Debug for BackendInner {
@@ -42,7 +42,7 @@ impl Default for BackendInner {
         Self {
             map: DashMap::new(),
             hmap: DashMap::new(),
-            set: DashSet::new(),
+            set: DashMap::new(),
         }
     }
 }
@@ -78,5 +78,18 @@ impl Backend {
 
     pub fn echo(&self, value: &str) -> RespFrame {
         RespFrame::BulkString(value.into())
+    }
+
+    pub fn sadd(&self, key: String, value: RespFrame) -> Option<bool> {
+        let set = self.set.entry(key).or_default();
+        if set.contains(&value) {
+            return None;
+        }
+        Some(set.insert(value))
+    }
+
+    pub fn sismember(&self, key: String, value: &RespFrame) -> bool {
+        let set = self.set.entry(key).or_default();
+        set.contains(value)
     }
 }
