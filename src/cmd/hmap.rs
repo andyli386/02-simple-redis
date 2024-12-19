@@ -2,7 +2,7 @@ use super::{CommandExecutor, HGetAll, HSet, RESP_OK};
 use crate::{
     backend::Backend,
     cmd::{extract_args, validate_command, CommandError, HGet},
-    RespArray, RespFrame, RespMap, RespNull,
+    BulkString, RespArray, RespFrame, RespNull,
 };
 
 impl CommandExecutor for HGet {
@@ -19,12 +19,19 @@ impl CommandExecutor for HGetAll {
         let hmap = backend.hmap.get(&self.key);
         match hmap {
             Some(hmap) => {
-                let mut map = RespMap::new();
+                // let mut map = RespMap::new();
+                // for v in hmap.iter() {
+                //     let key = v.key().to_owned();
+                //     map.insert(key, v.value().clone());
+                // }
+                // map.into()
+                let mut ret = Vec::with_capacity(hmap.len() * 2);
                 for v in hmap.iter() {
                     let key = v.key().to_owned();
-                    map.insert(key, v.value().clone());
+                    ret.push(BulkString::new(key).into());
+                    ret.push(v.value().clone())
                 }
-                map.into()
+                RespArray::new(ret).into()
             }
             None => RespArray::new([]).into(),
         }
@@ -94,10 +101,12 @@ impl TryFrom<RespArray> for HSet {
 #[cfg(test)]
 mod tests {
     use bytes::BytesMut;
+    use dashmap::DashMap;
 
     use crate::{
-        cmd::{HGet, HGetAll, HSet},
-        RespArray, RespDecode, RespFrame,
+        backend::Backend,
+        cmd::{CommandExecutor, HGet, HGetAll, HSet},
+        BulkString, RespArray, RespDecode, RespFrame,
     };
 
     #[test]
@@ -138,5 +147,55 @@ mod tests {
         let result: HGetAll = frame.try_into()?;
         assert_eq!(result.key, "map");
         Ok(())
+    }
+
+    #[test]
+    fn test_hgetall_existing_key() {
+        let backend = Backend::new();
+        let hmap = DashMap::new();
+        hmap.insert("field1".to_string(), BulkString::new("value1").into());
+        hmap.insert("field2".to_string(), BulkString::new("value2").into());
+        backend.hmap.insert("myhash".to_string(), hmap);
+
+        let command = HGetAll {
+            key: "myhash".to_string(),
+        };
+        let result = command.execute(&backend);
+
+        assert!(matches!(result, RespFrame::Array(_)));
+        if let RespFrame::Array(array) = result {
+            // 将结果分组为键值对并排序
+            let mut pairs: Vec<_> = array
+                .chunks(2)
+                .map(|chunk| (chunk[0].clone(), chunk[1].clone()))
+                .collect();
+            pairs.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap());
+
+            // 预期的键值对，按相同顺序排序
+            let mut expected = vec![
+                (
+                    BulkString::new("field1").into(),
+                    BulkString::new("value1").into(),
+                ),
+                (
+                    BulkString::new("field2").into(),
+                    BulkString::new("value2").into(),
+                ),
+            ];
+            expected.sort_by(|a: &(RespFrame, RespFrame), b| a.0.partial_cmp(&b.0).unwrap());
+
+            assert_eq!(pairs, expected);
+        }
+    }
+
+    #[test]
+    fn test_hgetall_nonexistent_key() {
+        let backend = Backend::new();
+        let command = HGetAll {
+            key: "nonexistent".to_string(),
+        };
+        let result = command.execute(&backend);
+
+        assert!(matches!(result, RespFrame::Array(array) if array.is_empty()));
     }
 }
