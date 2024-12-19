@@ -56,12 +56,12 @@ impl TryFrom<RespArray> for Set {
 
 #[cfg(test)]
 mod test {
-    use bytes::BytesMut;
-
     use crate::{
-        cmd::{Get, Set},
+        backend::Backend,
+        cmd::{map::RESP_OK, CommandExecutor, Get, Set},
         RespArray, RespDecode, RespFrame,
     };
+    use bytes::BytesMut;
 
     #[test]
     fn test_get_from_resp_array() -> anyhow::Result<()> {
@@ -87,15 +87,6 @@ mod test {
         assert_eq!(result.value, RespFrame::BulkString(b"world".into()));
         Ok(())
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{
-        backend::Backend,
-        cmd::{map::RESP_OK, CommandExecutor, Get, Set},
-        RespFrame,
-    };
 
     #[test]
     fn test_set_get_cmd() -> anyhow::Result<()> {
