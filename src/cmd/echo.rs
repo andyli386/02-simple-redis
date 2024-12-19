@@ -1,4 +1,4 @@
-use crate::{backend::Backend, RespArray, RespFrame};
+use crate::{backend::Backend, BulkString, RespArray, RespFrame};
 
 use super::{extract_args, validate_command, CommandError, CommandExecutor, Echo};
 
@@ -15,8 +15,8 @@ impl TryFrom<RespArray> for Echo {
         validate_command(&value, &["echo"], 1)?;
         let mut args = extract_args(value, 1)?.into_iter();
         match args.next() {
-            Some(RespFrame::BulkString(v)) => Ok(Echo {
-                value: String::from_utf8(v.0)?,
+            Some(RespFrame::BulkString(BulkString(Some(v)))) => Ok(Echo {
+                value: String::from_utf8(v)?,
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
         }

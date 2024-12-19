@@ -61,9 +61,12 @@ impl TryFrom<RespArray> for HGet {
 
         let mut args = extract_args(value, 1)?.into_iter();
         match (args.next(), args.next()) {
-            (Some(RespFrame::BulkString(key)), Some(RespFrame::BulkString(field))) => Ok(HGet {
-                key: String::from_utf8(key.0)?,
-                field: String::from_utf8(field.0)?,
+            (
+                Some(RespFrame::BulkString(BulkString(Some(key)))),
+                Some(RespFrame::BulkString(BulkString(Some(field)))),
+            ) => Ok(HGet {
+                key: String::from_utf8(key)?,
+                field: String::from_utf8(field)?,
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
         }
@@ -78,8 +81,8 @@ impl TryFrom<RespArray> for HGetAll {
 
         let mut args = extract_args(value, 1)?.into_iter();
         match args.next() {
-            Some(RespFrame::BulkString(key)) => Ok(HGetAll {
-                key: String::from_utf8(key.0)?,
+            Some(RespFrame::BulkString(BulkString(Some(key)))) => Ok(HGetAll {
+                key: String::from_utf8(key)?,
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
         }
@@ -96,15 +99,17 @@ impl TryFrom<RespArray> for HMGet {
 
         let mut fields = Vec::with_capacity(capacity);
 
-        let key = if let Some(RespFrame::BulkString(k)) = args.next() {
-            String::from_utf8(k.0)?
+        let key = if let Some(RespFrame::BulkString(BulkString(Some(k)))) = args.next() {
+            String::from_utf8(k)?
         } else {
             return Err(CommandError::InvalidArgument("Invalid key".to_string()));
         };
 
         for frame in args {
             match frame {
-                RespFrame::BulkString(field) => fields.push(String::from_utf8(field.0)?),
+                RespFrame::BulkString(BulkString(Some(field))) => {
+                    fields.push(String::from_utf8(field)?)
+                }
                 _ => return Err(CommandError::InvalidArgument("Invalid field".to_string())),
             };
         }
@@ -121,13 +126,15 @@ impl TryFrom<RespArray> for HSet {
 
         let mut args = extract_args(value, 1)?.into_iter();
         match (args.next(), args.next(), args.next()) {
-            (Some(RespFrame::BulkString(key)), Some(RespFrame::BulkString(field)), Some(value)) => {
-                Ok(HSet {
-                    key: String::from_utf8(key.0)?,
-                    field: String::from_utf8(field.0)?,
-                    value,
-                })
-            }
+            (
+                Some(RespFrame::BulkString(BulkString(Some(key)))),
+                Some(RespFrame::BulkString(BulkString(Some(field)))),
+                Some(value),
+            ) => Ok(HSet {
+                key: String::from_utf8(key)?,
+                field: String::from_utf8(field)?,
+                value,
+            }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
         }
     }
