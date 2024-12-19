@@ -10,15 +10,6 @@ use tokio_stream::StreamExt;
 use tokio_util::codec::{Decoder, Encoder, Framed};
 use tracing::info;
 
-struct RedisRequest {
-    frame: RespFrame,
-    backend: Backend,
-}
-
-struct RedisResponse {
-    frame: RespFrame,
-}
-
 #[derive(Debug)]
 struct RespFrameCodec;
 
@@ -53,23 +44,13 @@ pub async fn stream_handler(stream: TcpStream, backend: Backend) -> Result<()> {
         match framed.next().await {
             Some(Ok(frame)) => {
                 info!("Received frame: {:?}", frame);
-                let request = RedisRequest {
-                    frame,
-                    backend: backend.clone(),
-                };
-                let response = request_handler(request).await?;
-                framed.send(response.frame).await?;
+                let cmd: Command = Command::try_from(frame)?;
+                info!("Executing cmd : {:?}", cmd);
+                let frame = cmd.execute(&backend);
+                framed.send(frame).await?;
             }
             Some(Err(e)) => return Err(e),
             None => return Ok(()),
         }
     }
-}
-
-async fn request_handler(request: RedisRequest) -> Result<RedisResponse> {
-    let (frame, backend) = (request.frame, request.backend);
-    let cmd: Command = Command::try_from(frame)?;
-    info!("Executing cmd : {:?}", cmd);
-    let frame = cmd.execute(&backend);
-    Ok(RedisResponse { frame })
 }
