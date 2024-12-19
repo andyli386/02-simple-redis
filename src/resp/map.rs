@@ -5,6 +5,7 @@ use super::{
 use bytes::{Buf, BytesMut};
 use std::{
     collections::BTreeMap,
+    hash::Hash,
     ops::{Deref, DerefMut},
 };
 
@@ -14,6 +15,16 @@ pub struct RespMap(pub(crate) BTreeMap<String, RespFrame>);
 impl RespMap {
     pub fn new() -> Self {
         RespMap(BTreeMap::new())
+    }
+}
+
+impl Eq for RespMap {}
+impl Hash for RespMap {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (k, v) in &self.0 {
+            k.hash(state);
+            v.hash(state);
+        }
     }
 }
 

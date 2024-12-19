@@ -1,16 +1,26 @@
-use std::{ops::Deref, sync::Arc};
+use std::{fmt, ops::Deref, sync::Arc};
 
-use dashmap::DashMap;
+use dashmap::{DashMap, DashSet};
 
 use crate::RespFrame;
 
 #[derive(Debug, Clone)]
 pub struct Backend(pub(crate) Arc<BackendInner>);
 
-#[derive(Debug)]
 pub struct BackendInner {
     pub map: DashMap<String, RespFrame>,
     pub hmap: DashMap<String, DashMap<String, RespFrame>>,
+    pub set: DashSet<RespFrame>,
+}
+
+impl fmt::Debug for BackendInner {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("BackendInner")
+            .field("map", &self.map)
+            .field("hmap", &self.hmap)
+            .field("set", &"<DashSet<RespFrame>>") // 将 DashSet 转为 Vec 输出
+            .finish()
+    }
 }
 
 impl Deref for Backend {
@@ -32,6 +42,7 @@ impl Default for BackendInner {
         Self {
             map: DashMap::new(),
             hmap: DashMap::new(),
+            set: DashSet::new(),
         }
     }
 }

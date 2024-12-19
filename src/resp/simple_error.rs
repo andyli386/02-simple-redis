@@ -2,7 +2,7 @@ use super::{extract_simple_frame_data, RespDecode, RespEncode, RespError, CRLF_L
 use bytes::BytesMut;
 use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SimpleError(pub(crate) String);
 
 impl SimpleError {

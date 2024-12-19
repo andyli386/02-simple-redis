@@ -5,7 +5,7 @@ use super::{
 use bytes::{Buf, BytesMut};
 use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Hash, Clone, PartialEq, PartialOrd)]
 pub struct RespSet(pub(crate) Vec<RespFrame>);
 
 impl RespSet {

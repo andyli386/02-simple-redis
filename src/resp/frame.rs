@@ -4,6 +4,7 @@ use super::{
 };
 use bytes::BytesMut;
 use enum_dispatch::enum_dispatch;
+use std::hash::Hash;
 
 #[enum_dispatch(RespEncode)]
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -20,6 +21,27 @@ pub enum RespFrame {
     Double(f64),
     Map(RespMap),
     Set(RespSet),
+}
+
+impl Eq for RespFrame {}
+impl Hash for RespFrame {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            RespFrame::SimpleString(s) => s.hash(state),
+            RespFrame::Error(e) => e.hash(state),
+            RespFrame::Integer(i) => i.hash(state),
+            RespFrame::BulkString(bs) => bs.hash(state),
+            RespFrame::Array(arr) => arr.hash(state),
+            RespFrame::NullBulkString(_) => {}
+            RespFrame::NullArray(_) => {}
+            RespFrame::Null(_) => {}
+            RespFrame::Boolean(b) => b.hash(state),
+            RespFrame::Double(f) => f.to_bits().hash(state),
+            RespFrame::Map(m) => m.hash(state),
+            RespFrame::Set(s) => s.hash(state),
+        }
+    }
 }
 
 impl RespDecode for RespFrame {

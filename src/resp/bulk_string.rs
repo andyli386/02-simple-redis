@@ -2,10 +2,10 @@ use super::{extract_fixed_data, parse_length, RespDecode, RespEncode, RespError,
 use bytes::{Buf, BytesMut};
 use std::ops::Deref;
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct BulkString(pub(crate) Vec<u8>);
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RespNullBulkString;
 
 impl BulkString {
