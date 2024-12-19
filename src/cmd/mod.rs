@@ -36,6 +36,7 @@ pub enum Command {
     HGet(HGet),
     HSet(HSet),
     HGetAll(HGetAll),
+    HMGet(HMGet),
     Echo(Echo),
     Unrecognized(Unrecognized),
 }
@@ -59,14 +60,18 @@ pub struct Set {
     value: RespFrame,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct HGet {
     key: String,
     field: String,
 }
 
-#[allow(dead_code)]
+#[derive(Debug)]
+pub struct HMGet {
+    key: String,
+    fields: Vec<String>,
+}
+
 #[derive(Debug)]
 pub struct HSet {
     key: String,
@@ -74,7 +79,6 @@ pub struct HSet {
     value: RespFrame,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub struct HGetAll {
     key: String,
@@ -101,6 +105,7 @@ impl TryFrom<RespArray> for Command {
                 b"set" => Ok(Set::try_from(v)?.into()),
                 b"hget" => Ok(HGet::try_from(v)?.into()),
                 b"hset" => Ok(HSet::try_from(v)?.into()),
+                b"hmget" => Ok(HMGet::try_from(v)?.into()),
                 b"hgetall" => Ok(HGetAll::try_from(v)?.into()),
                 b"echo" => Ok(Echo::try_from(v)?.into()),
                 _ => Ok(Unrecognized.into()),

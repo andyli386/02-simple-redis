@@ -1,4 +1,4 @@
-use super::{CommandExecutor, HGetAll, HSet, RESP_OK};
+use super::{CommandExecutor, HGetAll, HMGet, HSet, RESP_OK};
 use crate::{
     backend::Backend,
     cmd::{extract_args, validate_command, CommandError, HGet},
@@ -19,12 +19,6 @@ impl CommandExecutor for HGetAll {
         let hmap = backend.hmap.get(&self.key);
         match hmap {
             Some(hmap) => {
-                // let mut map = RespMap::new();
-                // for v in hmap.iter() {
-                //     let key = v.key().to_owned();
-                //     map.insert(key, v.value().clone());
-                // }
-                // map.into()
                 let mut ret = Vec::with_capacity(hmap.len() * 2);
                 for v in hmap.iter() {
                     let key = v.key().to_owned();
@@ -35,6 +29,20 @@ impl CommandExecutor for HGetAll {
             }
             None => RespArray::new([]).into(),
         }
+    }
+}
+
+impl CommandExecutor for HMGet {
+    fn execute(self, backend: &Backend) -> RespFrame {
+        let mut ret = Vec::with_capacity(self.fields.len());
+        for field in self.fields {
+            let hmap = backend.hget(&self.key, &field);
+            match hmap {
+                Some(value) => ret.push(value),
+                None => ret.push(RespFrame::Null(RespNull)),
+            }
+        }
+        RespArray::new(ret).into()
     }
 }
 
@@ -75,6 +83,33 @@ impl TryFrom<RespArray> for HGetAll {
             }),
             _ => Err(CommandError::InvalidArgument("Invalid key".to_string())),
         }
+    }
+}
+
+impl TryFrom<RespArray> for HMGet {
+    type Error = CommandError;
+
+    fn try_from(value: RespArray) -> Result<Self, Self::Error> {
+        let capacity = value.len() - 1;
+        validate_command(&value, &["hmget"], capacity)?;
+        let mut args = extract_args(value, 1)?.into_iter();
+
+        let mut fields = Vec::with_capacity(capacity);
+
+        let key = if let Some(RespFrame::BulkString(k)) = args.next() {
+            String::from_utf8(k.0)?
+        } else {
+            return Err(CommandError::InvalidArgument("Invalid key".to_string()));
+        };
+
+        for frame in args {
+            match frame {
+                RespFrame::BulkString(field) => fields.push(String::from_utf8(field.0)?),
+                _ => return Err(CommandError::InvalidArgument("Invalid field".to_string())),
+            };
+        }
+
+        Ok(HMGet { key, fields })
     }
 }
 
