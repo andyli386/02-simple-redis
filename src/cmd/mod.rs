@@ -3,6 +3,7 @@ use enum_dispatch::enum_dispatch;
 use lazy_static::lazy_static;
 use thiserror::Error;
 
+mod echo;
 mod hmap;
 mod map;
 
@@ -35,11 +36,17 @@ pub enum Command {
     HGet(HGet),
     HSet(HSet),
     HGetAll(HGetAll),
+    Echo(Echo),
     Unrecognized(Unrecognized),
 }
 
 #[derive(Debug)]
 pub struct Unrecognized;
+
+#[derive(Debug)]
+pub struct Echo {
+    value: String,
+}
 
 #[derive(Debug)]
 pub struct Get {
@@ -95,6 +102,7 @@ impl TryFrom<RespArray> for Command {
                 b"hget" => Ok(HGet::try_from(v)?.into()),
                 b"hset" => Ok(HSet::try_from(v)?.into()),
                 b"hgetall" => Ok(HGetAll::try_from(v)?.into()),
+                b"echo" => Ok(Echo::try_from(v)?.into()),
                 _ => Ok(Unrecognized.into()),
             },
             _ => Err(CommandError::InvalidCommand(

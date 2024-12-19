@@ -64,4 +64,8 @@ impl Backend {
     pub fn hgetall(&self, key: &str) -> Option<DashMap<String, RespFrame>> {
         self.hmap.get(key).map(|v| v.clone())
     }
+
+    pub fn echo(&self, value: &str) -> RespFrame {
+        RespFrame::BulkString(value.into())
+    }
 }
