@@ -100,7 +100,7 @@ impl TryFrom<RespArray> for Command {
     type Error = CommandError;
     fn try_from(v: RespArray) -> Result<Self, Self::Error> {
         match v.first() {
-            Some(RespFrame::BulkString(ref cmd)) => match cmd.as_ref() {
+            Some(RespFrame::BulkString(ref cmd)) => match cmd.to_ascii_lowercase().as_slice() {
                 b"get" => Ok(Get::try_from(v)?.into()),
                 b"set" => Ok(Set::try_from(v)?.into()),
                 b"hget" => Ok(HGet::try_from(v)?.into()),
