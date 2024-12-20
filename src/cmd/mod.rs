@@ -176,5 +176,8 @@ fn validate_command(
 }
 
 fn extract_args(value: RespArray, start: usize) -> Result<Vec<RespFrame>, CommandError> {
-    Ok(value.0.into_iter().skip(start).collect::<Vec<RespFrame>>())
+    match value.0 {
+        Some(arr) => Ok(arr.into_iter().skip(start).collect::<Vec<RespFrame>>()),
+        None => Err(CommandError::InvalidCommand(format!("{:?}", value))),
+    }
 }

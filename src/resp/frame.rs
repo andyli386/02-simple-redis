@@ -1,6 +1,6 @@
 use super::{
-    BulkString, RespArray, RespDecode, RespError, RespMap, RespNull, RespNullArray, RespSet,
-    SimpleError, SimpleString,
+    BulkString, RespArray, RespDecode, RespError, RespMap, RespNull, RespSet, SimpleError,
+    SimpleString,
 };
 use bytes::BytesMut;
 use enum_dispatch::enum_dispatch;
@@ -14,7 +14,6 @@ pub enum RespFrame {
     Integer(i64),
     BulkString(BulkString),
     Array(RespArray),
-    NullArray(RespNullArray),
     Null(RespNull),
     Boolean(bool),
     Double(f64),
@@ -32,7 +31,6 @@ impl Hash for RespFrame {
             RespFrame::Integer(i) => i.hash(state),
             RespFrame::BulkString(bs) => bs.hash(state),
             RespFrame::Array(arr) => arr.hash(state),
-            RespFrame::NullArray(_) => {}
             RespFrame::Null(_) => {}
             RespFrame::Boolean(b) => b.hash(state),
             RespFrame::Double(f) => f.to_bits().hash(state),
@@ -63,13 +61,9 @@ impl RespDecode for RespFrame {
                 Ok(frame) => Ok(frame.into()),
                 Err(e) => Err(e),
             },
-            Some(b'*') => match RespNullArray::decode(buf) {
+            Some(b'*') => match RespArray::decode(buf) {
                 Ok(frame) => Ok(frame.into()),
-                Err(RespError::NotComplete) => Err(RespError::NotComplete),
-                Err(_) => {
-                    let frame = RespArray::decode(buf)?;
-                    Ok(frame.into())
-                }
+                Err(e) => Err(e),
             },
             Some(b'_') => {
                 let frame = RespNull::decode(buf)?;
